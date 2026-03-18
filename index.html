@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grocery Sync — King Soopers Cart Builder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0c0e11;
+      --surface: rgba(255,255,255,0.035);
+      --border: rgba(255,255,255,0.07);
+      --accent: #d4753a;
+      --accent-soft: rgba(212,117,58,0.12);
+      --green: #48b885;
+      --green-soft: rgba(72,184,133,0.12);
+      --red: #d94848;
+      --yellow: #d4a93a;
+      --text1: #e8e4df;
+      --text2: #9e968c;
+      --text3: #5e574f;
+      --mono: 'JetBrains Mono', 'SF Mono', monospace;
+      --sans: 'DM Sans', system-ui, sans-serif;
+    }
+
+    body {
+      font-family: var(--sans);
+      background: radial-gradient(ellipse at 20% 0%, rgba(212,117,58,0.06) 0%, transparent 60%),
+                  radial-gradient(ellipse at 80% 100%, rgba(72,184,133,0.04) 0%, transparent 50%),
+                  var(--bg);
+      color: var(--text2);
+      min-height: 100vh;
+      padding: 28px 16px 64px;
+    }
+
+    .container { max-width: 620px; margin: 0 auto; }
+
+    /* Header */
+    .header { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+    .header-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: var(--accent-soft); display: flex; align-items: center;
+      justify-content: center; font-size: 20px;
+    }
+    .header h1 { font-size: 22px; font-weight: 700; color: var(--text1); letter-spacing: -0.4px; line-height: 1.2; }
+    .header p { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* Cards */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 24px; margin-bottom: 14px;
+    }
+    .card h2 { font-size: 17px; font-weight: 600; color: var(--text1); margin-bottom: 4px; }
+    .card .desc { font-size: 13px; color: var(--text3); line-height: 1.5; margin-bottom: 16px; }
+
+    /* Inputs */
+    textarea, input[type="text"] {
+      display: block; width: 100%; padding: 11px 14px;
+      font-size: 13px; font-family: var(--mono); line-height: 1.7;
+      background: rgba(0,0,0,0.35); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text1); outline: none; resize: vertical;
+    }
+    textarea:focus, input[type="text"]:focus { border-color: rgba(212,117,58,0.3); }
+    textarea { margin-bottom: 12px; }
+
+    label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.4px; }
+
+    .zip-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .zip-row input { width: 80px; }
+
+    /* Buttons */
+    .btn {
+      padding: 10px 20px; font-size: 13px; font-weight: 600;
+      font-family: var(--sans); border: none; border-radius: 8px;
+      cursor: pointer; transition: opacity 0.15s; letter-spacing: 0.2px;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-accent { color: #fff; background: linear-gradient(135deg, var(--accent), #b85e2a); }
+    .btn-green { color: #fff; background: linear-gradient(135deg, var(--green), #2f9466); }
+    .btn-ghost {
+      padding: 10px 16px; font-size: 12px; font-weight: 500;
+      color: var(--text3); background: transparent;
+      border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+    }
+    .btn-ghost:hover { border-color: rgba(255,255,255,0.15); }
+
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+    /* Login card */
+    .login-card { text-align: center; padding: 40px 24px; }
+    .login-card p { margin-bottom: 20px; font-size: 14px; color: var(--text2); line-height: 1.6; }
+    .login-card .btn { font-size: 15px; padding: 12px 28px; }
+
+    /* Saved lists */
+    .saved-lists { margin-bottom: 14px; }
+    .saved-list-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.03);
+      cursor: pointer; transition: background 0.15s; border-radius: 6px;
+    }
+    .saved-list-item:hover { background: rgba(255,255,255,0.03); }
+    .saved-list-name { font-size: 13px; color: var(--text1); font-weight: 500; }
+    .saved-list-count { font-size: 11px; color: var(--text3); }
+    .saved-list-actions { display: flex; gap: 8px; }
+    .saved-list-actions button {
+      background: none; border: none; color: var(--text3); cursor: pointer;
+      font-size: 11px; padding: 2px 6px; border-radius: 4px;
+    }
+    .saved-list-actions button:hover { color: var(--red); background: rgba(217,72,72,0.1); }
+
+    /* Products table */
+    .table-wrap {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; overflow: hidden; margin-bottom: 14px;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th {
+      text-align: left; padding: 10px 12px; font-size: 10px; font-weight: 600;
+      color: var(--text3); text-transform: uppercase; letter-spacing: 0.6px;
+      border-bottom: 1px solid var(--border);
+    }
+    td { padding: 9px 12px; border-bottom: 1px solid rgba(255,255,255,0.02); color: var(--text2); }
+    tr.oos { opacity: 0.4; }
+
+    .item-name { font-weight: 500; color: var(--text1); }
+    .price { font-family: var(--mono); font-size: 12px; color: var(--text1); }
+    .promo { color: var(--green); font-size: 10px; font-weight: 600; margin-left: 4px; }
+
+    .brand-badge {
+      display: inline-block; padding: 2px 7px; border-radius: 4px;
+      font-size: 10px; font-weight: 600;
+    }
+    .brand-store { background: var(--green-soft); color: var(--green); }
+    .brand-other { background: rgba(255,255,255,0.04); color: var(--text3); }
+
+    .status-ready { color: var(--green); font-size: 11px; font-weight: 500; }
+    .status-oos { color: var(--red); font-size: 11px; font-weight: 500; }
+
+    .checkbox {
+      width: 16px; height: 16px; border-radius: 3px;
+      border: 2px solid var(--text3); display: flex;
+      align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .checkbox.checked { background: var(--accent); border-color: var(--accent); }
+    .checkbox.disabled { cursor: not-allowed; opacity: 0.4; }
+
+    .product-img { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; background: rgba(0,0,0,0.2); }
+
+    /* Summary bar */
+    .summary {
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 12px;
+    }
+    .summary .total { font-family: var(--mono); color: var(--text1); }
+
+    /* Checkout */
+    .checkout-card {
+      background: var(--green-soft); border: 1px solid rgba(72,184,133,0.2);
+      border-radius: 14px; padding: 24px; text-align: center; margin-bottom: 14px;
+    }
+    .checkout-card a {
+      display: inline-block; padding: 11px 26px; font-size: 14px; font-weight: 600;
+      color: #fff; background: linear-gradient(135deg, var(--green), #2f9466);
+      border-radius: 8px; text-decoration: none; transition: opacity 0.15s;
+    }
+    .checkout-card a:hover { opacity: 0.85; }
+    .checkout-card .note { color: var(--text3); font-size: 11px; margin-top: 10px; font-style: italic; }
+
+    /* Spinner */
+    .spinner-wrap { text-align: center; padding: 36px 24px; }
+    .spinner {
+      width: 40px; height: 40px; margin: 0 auto 16px;
+      border: 3px solid var(--border); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Error */
+    .error { color: var(--red); font-size: 13px; margin: 8px 0; }
+
+    /* User bar */
+    .user-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 14px; padding: 10px 16px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    }
+    .user-bar .status { font-size: 12px; color: var(--green); font-weight: 500; }
+    .user-bar .status::before { content: "● "; font-size: 8px; }
+    .user-bar a { font-size: 11px; color: var(--text3); text-decoration: none; }
+    .user-bar a:hover { color: var(--red); }
+
+    /* Footer */
+    .footer {
+      text-align: center; font-size: 10px; color: var(--text3);
+      letter-spacing: 0.3px; margin-top: 32px;
+    }
+
+    /* Save list modal */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center; z-index: 100;
+    }
+    .modal {
+      background: #1a1c20; border: 1px solid var(--border);
+      border-radius: 14px; padding: 24px; width: 90%; max-width: 380px;
+    }
+    .modal h3 { font-size: 15px; color: var(--text1); margin-bottom: 12px; }
+    .modal input { margin-bottom: 14px; }
+
+    /* Code block for Google Doc format */
+    .code-hint {
+      background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px 14px; font-family: var(--mono);
+      font-size: 12px; color: var(--text2); line-height: 1.6; margin: 12px 0;
+      white-space: pre-wrap;
+    }
+
+    .hidden { display: none; }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+      .header h1 { font-size: 18px; }
+      td, th { padding: 7px 8px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container" id="app">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-icon">🛒</div>
+    <div>
+      <h1>Grocery Sync</h1>
+      <p>King Soopers · Pickup Cart Builder</p>
+    </div>
+  </div>
+
+  <!-- App content inserted by JS -->
+  <div id="content"></div>
+
+  <div class="footer">GROCERY SYNC · KING SOOPERS PICKUP · NEVER AUTO-CHARGES</div>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────
+const state = {
+  loggedIn: false,
+  step: "loading",       // loading | login | list | searching | results
+  listText: "",
+  zipCode: "80246",
+  locationId: null,
+  locationName: "",
+  items: [],             // parsed list items
+  results: [],           // product search results grouped by item
+  cartSent: false,
+  error: "",
+  savedLists: JSON.parse(localStorage.getItem("gs_saved_lists") || "[]"),
+  showSaveModal: false,
+  saveListName: "",
+};
+
+const $ = (sel) => document.querySelector(sel);
+const content = () => $("#content");
+
+// ─── API helpers ──────────────────────────────────────────────
+async function api(path, opts = {}) {
+  const res = await fetch(`/api/${path}`, {
+    credentials: "include",
+    ...opts,
+    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+  });
+  if (res.redirected) { window.location.href = res.url; return null; }
+  if (res.status === 401) { state.loggedIn = false; state.step = "login"; render(); return null; }
+  return res;
+}
+
+// ─── Check auth on load ──────────────────────────────────────
+async function checkAuth() {
+  try {
+    const res = await api("me");
+    if (!res) return;
+    const data = await res.json();
+    state.loggedIn = data.loggedIn;
+    state.step = data.loggedIn ? "list" : "login";
+  } catch {
+    state.step = "login";
+  }
+  render();
+}
+
+// ─── Find nearest store ──────────────────────────────────────
+async function findStore() {
+  const res = await api(`locations?zip=${encodeURIComponent(state.zipCode)}`);
+  if (!res) return null;
+  const data = await res.json();
+  if (data.locations?.length) {
+    state.locationId = data.locations[0].id;
+    state.locationName = data.locations[0].name;
+    return data.locations[0];
+  }
+  return null;
+}
+
+// ─── Search products ─────────────────────────────────────────
+async function searchProducts() {
+  const lines = state.listText.split("\n").map(l => l.trim()).filter(Boolean);
+  state.items = lines.map(line => {
+    const d = line.lastIndexOf(" - ");
+    return d > 0
+      ? { name: line.slice(0, d).trim(), qty: line.slice(d + 3).trim() || "1" }
+      : { name: line, qty: "1" };
+  });
+
+  if (!state.items.length) { state.error = "Add at least one item."; render(); return; }
+
+  state.error = "";
+  state.step = "searching";
+  state.results = [];
+  render();
+
+  // Find store first
+  if (!state.locationId) {
+    const store = await findStore();
+    if (!store) {
+      state.error = "Couldn't find a King Soopers near that zip code.";
+      state.step = "list";
+      render();
+      return;
+    }
+  }
+
+  // Search each item
+  const results = [];
+  for (let i = 0; i < state.items.length; i++) {
+    const item = state.items[i];
+    updateSearchProgress(item.name, i, state.items.length);
+
+    try {
+      const res = await api(`products?term=${encodeURIComponent(item.name)}&locationId=${state.locationId}`);
+      if (!res) return;
+      const data = await res.json();
+
+      const products = data.products || [];
+      const best = products[0] || null;
+
+      results.push({
+        query: item.name,
+        qty: item.qty,
+        products,
+        selected: best,
+        selectedIdx: best ? 0 : -1,
+        added: false,
+      });
+    } catch (err) {
+      results.push({ query: item.name, qty: item.qty, products: [], selected: null, selectedIdx: -1, added: false });
+    }
+  }
+
+  state.results = results;
+  state.step = "results";
+  state.cartSent = false;
+  render();
+}
+
+function updateSearchProgress(itemName, current, total) {
+  const pct = Math.round(((current + 1) / total) * 100);
+  content().innerHTML = `
+    <div class="card spinner-wrap">
+      <div class="spinner"></div>
+      <h2>Searching King Soopers…</h2>
+      <p style="color:var(--text3);margin-top:6px">
+        Looking for <strong style="color:var(--text1)">${esc(itemName)}</strong>
+        &nbsp;(${current + 1}/${total})
+      </p>
+      <div style="margin-top:16px;height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:2px;transition:width 0.4s"></div>
+      </div>
+      <p style="color:var(--text3);font-size:12px;margin-top:8px">
+        Checking stock at ${esc(state.locationName || "your local store")}
+      </p>
+    </div>`;
+}
+
+// ─── Add to cart ─────────────────────────────────────────────
+async function addToCart() {
+  const items = state.results
+    .filter(r => r.selected && r.selected.inStock)
+    .map(r => ({ upc: r.selected.upc, quantity: parseInt(r.qty) || 1 }));
+
+  if (!items.length) { state.error = "No in-stock items selected."; render(); return; }
+
+  try {
+    const res = await api("cart", {
+      method: "POST",
+      body: JSON.stringify({ items }),
+    });
+
+    if (!res) return;
+    const data = await res.json();
+
+    if (data.success) {
+      state.cartSent = true;
+      state.error = "";
+    } else {
+      state.error = data.error || "Failed to add items to cart.";
+    }
+  } catch (err) {
+    state.error = "Failed to add items to cart.";
+  }
+  render();
+}
+
+// ─── Saved lists ─────────────────────────────────────────────
+function saveList(name) {
+  const list = { name, text: state.listText, zip: state.zipCode, date: new Date().toISOString() };
+  state.savedLists = [list, ...state.savedLists.filter(l => l.name !== name)].slice(0, 20);
+  localStorage.setItem("gs_saved_lists", JSON.stringify(state.savedLists));
+  state.showSaveModal = false;
+  render();
+}
+
+function loadList(idx) {
+  const list = state.savedLists[idx];
+  if (list) {
+    state.listText = list.text;
+    state.zipCode = list.zip || state.zipCode;
+    render();
+  }
+}
+
+function deleteList(idx) {
+  state.savedLists.splice(idx, 1);
+  localStorage.setItem("gs_saved_lists", JSON.stringify(state.savedLists));
+  render();
+}
+
+// ─── Render ──────────────────────────────────────────────────
+function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+function render() {
+  const el = content();
+
+  // ── Login
+  if (state.step === "login") {
+    el.innerHTML = `
+      <div class="card login-card">
+        <h2>Connect Your King Soopers Account</h2>
+        <p>Log in with your Kroger/King Soopers account to search products and add items to your pickup cart.</p>
+        <a href="/api/auth" class="btn btn-accent" style="text-decoration:none;display:inline-block">
+          Sign in with King Soopers →
+        </a>
+        <p style="margin-top:16px;font-size:11px;color:var(--text3)">
+          Your credentials are handled by Kroger's secure OAuth. We never see your password.
+        </p>
+      </div>`;
+    return;
+  }
+
+  // ── Loading
+  if (state.step === "loading") {
+    el.innerHTML = `<div class="card spinner-wrap"><div class="spinner"></div><p>Connecting…</p></div>`;
+    return;
+  }
+
+  // ── List entry
+  if (state.step === "list") {
+    const savedHtml = state.savedLists.length ? `
+      <div class="card saved-lists">
+        <h2 style="margin-bottom:10px">Saved Lists</h2>
+        ${state.savedLists.map((l, i) => `
+          <div class="saved-list-item" onclick="loadList(${i})">
+            <div>
+              <div class="saved-list-name">${esc(l.name)}</div>
+              <div class="saved-list-count">${l.text.split("\\n").filter(Boolean).length} items · ${l.zip || ""}</div>
+            </div>
+            <div class="saved-list-actions">
+              <button onclick="event.stopPropagation();deleteList(${i})" title="Delete">✕</button>
+            </div>
+          </div>
+        `).join("")}
+      </div>` : "";
+
+    el.innerHTML = `
+      <div class="user-bar">
+        <span class="status">Connected to King Soopers</span>
+        <a href="/api/logout">Sign out</a>
+      </div>
+      ${savedHtml}
+      <div class="card">
+        <h2>Your Grocery List</h2>
+        <p class="desc">
+          One item per line. Use <code style="background:var(--accent-soft);color:var(--accent);padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:12px">item - quantity</code> for best results.
+        </p>
+        <textarea id="listInput" rows="9" placeholder="Bananas - 1 bunch\nWhole milk - 1 gallon\nSourdough bread - 1 loaf">${esc(state.listText)}</textarea>
+        <div class="zip-row">
+          <label>Zip</label>
+          <input type="text" id="zipInput" value="${esc(state.zipCode)}" />
+        </div>
+        ${state.error ? `<p class="error">${esc(state.error)}</p>` : ""}
+        <div class="btn-row">
+          <button class="btn btn-accent" onclick="onSearch()">Search King Soopers →</button>
+          <button class="btn-ghost" onclick="onSample()">Load sample</button>
+          <button class="btn-ghost" onclick="onSave()">💾 Save list</button>
+        </div>
+      </div>
+      ${state.showSaveModal ? renderSaveModal() : ""}`;
+    return;
+  }
+
+  // ── Results
+  if (state.step === "results") {
+    const selectedResults = state.results.filter(r => r.selected && r.selected.inStock);
+    const total = selectedResults.reduce((s, r) => {
+      const price = r.selected.promoPrice || r.selected.price || 0;
+      return s + price * (parseInt(r.qty) || 1);
+    }, 0).toFixed(2);
+    const selectedCount = selectedResults.length;
+
+    let tableRows = "";
+    state.results.forEach((r, idx) => {
+      const p = r.selected;
+      const oos = !p || !p.inStock;
+      const isStore = p && (p.brand || "").toLowerCase().match(/kroger|simple truth/);
+      const hasOptions = r.products.length > 1;
+
+      tableRows += `
+        <tr class="${oos ? "oos" : ""}">
+          <td>
+            <div class="checkbox ${p && p.inStock ? (r.selectedIdx >= 0 ? "checked" : "") : "disabled"}"
+                 onclick="${!oos ? `toggleResult(${idx})` : ""}">
+              ${r.selectedIdx >= 0 && p ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>' : ""}
+            </div>
+          </td>
+          <td>
+            <div class="item-name">${esc(r.query)}</div>
+            ${p ? `<div style="font-size:11px;color:var(--text3)">${esc(p.name || "")}</div>` : ""}
+          </td>
+          <td>
+            ${p ? `<span class="brand-badge ${isStore ? "brand-store" : "brand-other"}">${esc(p.brand || "—")}</span>` : "—"}
+          </td>
+          <td style="font-size:11px;color:var(--text3)">${p ? esc(p.size || r.qty) : esc(r.qty)}</td>
+          <td>
+            ${p && p.price != null ? `
+              <span class="price">$${Number(p.promoPrice || p.price).toFixed(2)}</span>
+              ${p.promoPrice ? `<span class="promo">SALE</span>` : ""}
+            ` : "—"}
+          </td>
+          <td>
+            ${oos
+              ? '<span class="status-oos">Not Found</span>'
+              : hasOptions
+                ? `<select onchange="pickOption(${idx}, this.value)" style="background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:4px;color:var(--text1);font-size:11px;padding:3px 6px;font-family:var(--sans)">
+                    ${r.products.map((pp, pi) => `<option value="${pi}" ${pi === r.selectedIdx ? "selected" : ""}>${esc(pp.brand || "")} — $${Number(pp.promoPrice || pp.price || 0).toFixed(2)} ${pp.size ? "(" + esc(pp.size) + ")" : ""}</option>`).join("")}
+                   </select>`
+                : '<span class="status-ready">Ready</span>'
+            }
+          </td>
+        </tr>`;
+    });
+
+    el.innerHTML = `
+      <div class="user-bar">
+        <span class="status">Connected to King Soopers${state.locationName ? " · " + esc(state.locationName) : ""}</span>
+        <a href="/api/logout">Sign out</a>
+      </div>
+      <div class="card">
+        <div class="summary">
+          <div>
+            <h2>${state.cartSent ? "Added to Cart ✓" : "Review Matches"}</h2>
+            <p style="font-size:12px;color:var(--text3);margin-top:2px">
+              ${selectedCount} of ${state.results.length} items · Est. <span class="total">$${total}</span>
+            </p>
+          </div>
+          ${!state.cartSent ? `<button class="btn btn-green" onclick="addToCart()">Add to Cart</button>` : ""}
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th></th><th>Item</th><th>Brand</th><th>Size</th><th>Price</th><th>Status</th></tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+      ${state.error ? `<p class="error">${esc(state.error)}</p>` : ""}
+      ${state.cartSent ? `
+        <div class="checkout-card">
+          <p style="color:var(--text2);margin-bottom:12px;font-size:13px">Items are in your King Soopers cart. Review and pay:</p>
+          <a href="https://www.kingsoopers.com/cart" target="_blank" rel="noopener noreferrer">
+            Checkout on KingSoopers.com ↗
+          </a>
+          <p class="note">Payment is never auto-charged.</p>
+        </div>` : ""}
+      <div class="btn-row">
+        <button class="btn-ghost" onclick="backToList()">← Edit list</button>
+        <button class="btn-ghost" onclick="onSave()">💾 Save this list</button>
+      </div>
+      ${state.showSaveModal ? renderSaveModal() : ""}`;
+    return;
+  }
+}
+
+function renderSaveModal() {
+  return `
+    <div class="modal-overlay" onclick="closeSaveModal(event)">
+      <div class="modal" onclick="event.stopPropagation()">
+        <h3>Save This List</h3>
+        <input type="text" id="saveNameInput" placeholder="e.g. Weekly Groceries" value="${esc(state.saveListName)}" />
+        <div class="btn-row">
+          <button class="btn btn-accent" onclick="confirmSave()">Save</button>
+          <button class="btn-ghost" onclick="state.showSaveModal=false;render()">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ─── Event handlers ──────────────────────────────────────────
+function onSearch() {
+  state.listText = $("#listInput").value;
+  state.zipCode = $("#zipInput").value;
+  state.locationId = null; // re-find store with new zip
+  searchProducts();
+}
+
+function onSample() {
+  $("#listInput").value = "Bananas - 1 bunch\nWhole milk - 1 gallon\nSourdough bread - 1 loaf\nChicken breast - 2 lbs\nBaby spinach - 1 bag\nGreek yogurt - 4 cups\nEggs - 1 dozen\nCheddar cheese - 1 block";
+  state.listText = $("#listInput").value;
+}
+
+function onSave() {
+  if ($("#listInput")) state.listText = $("#listInput").value;
+  if ($("#zipInput")) state.zipCode = $("#zipInput").value;
+  state.showSaveModal = true;
+  state.saveListName = "";
+  render();
+  setTimeout(() => { const inp = $("#saveNameInput"); if (inp) inp.focus(); }, 50);
+}
+
+function confirmSave() {
+  const name = ($("#saveNameInput")?.value || "").trim();
+  if (!name) return;
+  saveList(name);
+}
+
+function closeSaveModal(e) {
+  if (e.target === e.currentTarget) { state.showSaveModal = false; render(); }
+}
+
+function backToList() {
+  state.step = "list";
+  state.error = "";
+  state.cartSent = false;
+  render();
+}
+
+function toggleResult(idx) {
+  const r = state.results[idx];
+  r.selectedIdx = r.selectedIdx >= 0 ? -1 : 0;
+  r.selected = r.selectedIdx >= 0 ? r.products[r.selectedIdx] : null;
+  render();
+}
+
+function pickOption(idx, optIdx) {
+  const r = state.results[idx];
+  r.selectedIdx = parseInt(optIdx);
+  r.selected = r.products[r.selectedIdx] || null;
+  render();
+}
+
+// ─── Init ────────────────────────────────────────────────────
+checkAuth();
+</script>
+
+</body>
+</html>
