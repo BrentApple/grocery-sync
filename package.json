@@ -1,0 +1,12 @@
+{
+  "name": "grocery-sync",
+  "version": "1.0.0",
+  "description": "King Soopers grocery list sync — paste a list, match products, add to cart",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'Static site — no build step needed'"
+  },
+  "dependencies": {
+    "node-fetch": "^2.7.0"
+  }
+}
