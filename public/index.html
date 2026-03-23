@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Grocery Sync">
+  <title>Grocery Sync — King Soopers Cart Builder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #FAFAF7; --surface: #FFFFFF; --surface-hover: #F5F5F0;
+      --border: #E8E6DF; --border-focus: #2D5A3D;
+      --text-primary: #1A1A18; --text-secondary: #6B6960; --text-muted: #9B978C;
+      --accent: #2D5A3D; --accent-light: #E8F0EB; --accent-hover: #234A31;
+      --red: #C0392B; --red-light: #FDECEA;
+      --amber: #D97706; --amber-light: #FEF3C7;
+      --blue: #2563EB; --blue-light: #EFF6FF;
+      --checked-text: #B0AD9F;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.04); --shadow-md: 0 4px 12px rgba(0,0,0,0.06); --shadow-lg: 0 8px 30px rgba(0,0,0,0.08);
+      --radius: 12px; --radius-sm: 8px;
+    }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text-primary); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+    /* ── Header ── */
+    .header { border-bottom: 1px solid var(--border); padding: 20px 24px; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(12px); background: rgba(255,255,255,0.92); }
+    .header-inner { max-width: 600px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .header-icon { width: 42px; height: 42px; background: var(--accent); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 2px 8px rgba(45,90,61,0.25); }
+    .header-text h1 { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 500; letter-spacing: -0.3px; }
+    .header-text p { font-size: 12px; color: var(--text-muted); margin-top: 1px; letter-spacing: 0.5px; text-transform: uppercase; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .sync-badge { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--accent); background: var(--accent-light); padding: 5px 10px; border-radius: 20px; font-weight: 500; }
+    .sync-dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    /* ── Kroger Auth ── */
+    .kroger-btn { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; border: 1.5px solid var(--border); background: var(--surface); color: var(--text-secondary); transition: all 0.2s; text-decoration: none; }
+    .kroger-btn:hover { border-color: var(--blue); color: var(--blue); }
+    .kroger-btn.logged-in { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+    .kroger-btn .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .kroger-btn .dot.off { background: var(--text-muted); }
+    .kroger-btn .dot.on { background: var(--accent); }
+
+    /* ── Tabs ── */
+    .tab-nav { max-width: 600px; margin: 0 auto; padding: 16px 16px 0; display: flex; gap: 4px; }
+    .tab-btn { flex: 1; padding: 10px 16px; border: none; background: transparent; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+    .tab-btn:hover { color: var(--text-secondary); background: var(--surface-hover); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--surface); }
+
+    /* ── Container ── */
+    .container { max-width: 600px; margin: 0 auto; padding: 12px 16px 120px; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Add Section ── */
+    .add-section { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 16px; margin-bottom: 20px; box-shadow: var(--shadow-sm); }
+    .add-row { display: flex; gap: 10px; }
+    .add-input { flex: 1; padding: 12px 16px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 16px; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text-primary); transition: border-color 0.2s, box-shadow 0.2s; outline: none; }
+    .add-input::placeholder { color: var(--text-muted); }
+    .add-input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(45,90,61,0.1); }
+    .qty-input { width: 64px; padding: 12px 8px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 16px; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text-primary); text-align: center; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+    .qty-input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(45,90,61,0.1); }
+    .add-btn { padding: 12px 20px; background: var(--accent); color: white; border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: background 0.2s, transform 0.1s; white-space: nowrap; }
+    .add-btn:hover { background: var(--accent-hover); }
+    .add-btn:active { transform: scale(0.97); }
+
+    /* ── List Stats ── */
+    .list-stats { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px; }
+    .list-stats span { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+    .clear-checked-btn { font-size: 12px; color: var(--red); background: none; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-weight: 500; padding: 4px 8px; border-radius: 6px; transition: background 0.2s; }
+    .clear-checked-btn:hover { background: var(--red-light); }
+
+    /* ── Grocery List ── */
+    .grocery-list { display: flex; flex-direction: column; gap: 6px; }
+    .grocery-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; display: flex; align-items: center; gap: 12px; transition: all 0.2s; box-shadow: var(--shadow-sm); animation: slideIn 0.25s ease-out; }
+    .grocery-item:hover { box-shadow: var(--shadow-md); }
+    .grocery-item.checked { background: var(--surface-hover); border-color: transparent; box-shadow: none; }
+    .grocery-item.checked .item-name { text-decoration: line-through; color: var(--checked-text); }
+    .grocery-item.checked .item-qty-badge { color: var(--checked-text); }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    .checkbox { width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--border); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; background: var(--surface); }
+    .checkbox:hover { border-color: var(--accent); }
+    .checkbox.is-checked { background: var(--accent); border-color: var(--accent); }
+    .checkbox.is-checked::after { content: ''; width: 6px; height: 10px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg) translateY(-1px); }
+    .item-details { flex: 1; min-width: 0; }
+    .item-name { font-size: 15px; font-weight: 500; color: var(--text-primary); transition: color 0.2s; }
+    .item-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .item-qty-badge { font-size: 14px; color: var(--text-secondary); font-weight: 600; background: var(--bg); padding: 4px 10px; border-radius: 6px; flex-shrink: 0; }
+    .delete-btn { width: 28px; height: 28px; border-radius: 6px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: all 0.2s; flex-shrink: 0; opacity: 0; }
+    .grocery-item:hover .delete-btn { opacity: 1; }
+    .delete-btn:hover { background: var(--red-light); color: var(--red); }
+
+    /* ── Send to Cart Section ── */
+    .cart-section { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 16px; margin-top: 20px; box-shadow: var(--shadow-sm); }
+    .cart-section.disabled { opacity: 0.5; pointer-events: none; }
+    .cart-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .cart-section-header h3 { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 500; }
+    .cart-section-note { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4; }
+    .send-cart-btn { width: 100%; padding: 14px; background: var(--blue); color: white; border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: background 0.2s, transform 0.1s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .send-cart-btn:hover { background: #1D4ED8; }
+    .send-cart-btn:active { transform: scale(0.98); }
+    .send-cart-btn:disabled { background: var(--border); cursor: default; transform: none; }
+    .login-prompt-btn { width: 100%; padding: 14px; background: var(--surface); color: var(--blue); border: 1.5px solid var(--blue); border-radius: var(--radius-sm); font-size: 15px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .login-prompt-btn:hover { background: var(--blue-light); }
+
+    /* ── Progress Bar ── */
+    .progress-bar { width: 100%; height: 4px; background: var(--border); border-radius: 2px; margin-top: 12px; overflow: hidden; display: none; }
+    .progress-bar.active { display: block; }
+    .progress-fill { height: 100%; background: var(--blue); border-radius: 2px; transition: width 0.3s; width: 0%; }
+    .progress-text { font-size: 12px; color: var(--text-muted); margin-top: 8px; text-align: center; }
+
+    /* ── Staples ── */
+    .staples-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .staples-header h2 { font-family: 'Fraunces', serif; font-size: 16px; font-weight: 500; }
+    .add-all-btn { padding: 8px 16px; background: var(--accent); color: white; border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: background 0.2s, transform 0.1s; }
+    .add-all-btn:hover { background: var(--accent-hover); }
+    .add-all-btn:active { transform: scale(0.97); }
+    .add-all-btn:disabled { background: var(--border); cursor: default; }
+    .staples-grid { display: flex; flex-direction: column; gap: 6px; margin-bottom: 24px; }
+    .staple-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 16px; display: flex; align-items: center; gap: 12px; box-shadow: var(--shadow-sm); transition: all 0.2s; animation: slideIn 0.25s ease-out; }
+    .staple-item:hover { box-shadow: var(--shadow-md); }
+    .staple-item .item-details { flex: 1; }
+    .staple-item .item-name { font-size: 15px; font-weight: 500; }
+    .staple-add-btn { width: 32px; height: 32px; border-radius: 8px; border: 1.5px solid var(--accent); background: var(--accent-light); color: var(--accent); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 500; transition: all 0.2s; flex-shrink: 0; }
+    .staple-add-btn:hover { background: var(--accent); color: white; }
+    .staple-add-btn.added { background: var(--accent); color: white; border-color: var(--accent); font-size: 14px; }
+    .staple-remove-btn { width: 28px; height: 28px; border-radius: 6px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: all 0.2s; flex-shrink: 0; opacity: 0; }
+    .staple-item:hover .staple-remove-btn { opacity: 1; }
+    .staple-remove-btn:hover { background: var(--red-light); color: var(--red); }
+    .add-staple-section { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 16px; margin-bottom: 20px; box-shadow: var(--shadow-sm); }
+    .add-staple-hint { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.4; }
+
+    /* ── Shared ── */
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .empty-state .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.6; }
+    .empty-state h3 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 18px; color: var(--text-secondary); margin-bottom: 6px; }
+    .empty-state p { font-size: 14px; line-height: 1.5; }
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--text-primary); color: white; padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: 500; font-family: 'DM Sans', sans-serif; box-shadow: var(--shadow-lg); transition: transform 0.3s ease; z-index: 200; pointer-events: none; max-width: 90vw; text-align: center; }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.error { background: var(--red); }
+    .footer-notice { text-align: center; padding: 24px; font-size: 11px; color: var(--text-muted); letter-spacing: 0.5px; text-transform: uppercase; }
+    .loading { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .loading-spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-banner { background: var(--amber-light); border: 1px solid var(--amber); border-radius: var(--radius-sm); padding: 12px 16px; margin-bottom: 16px; font-size: 13px; color: #92400E; display: none; align-items: center; gap: 8px; }
+    .error-banner.show { display: flex; }
+    @media (max-width: 600px) { .header { padding: 16px; } .container { padding: 12px 12px 120px; } .delete-btn, .staple-remove-btn { opacity: 0.6; } .add-row { flex-wrap: wrap; } .add-input { min-width: 0; } .header-text h1 { font-size: 18px; } }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-left">
+        <div class="header-icon">🛒</div>
+        <div class="header-text">
+          <h1>Grocery Sync</h1>
+          <p>King Soopers · Pickup</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="sync-badge" id="syncBadge"><div class="sync-dot"></div><span>Live</span></div>
+        <a class="kroger-btn" id="krogerBtn" href="/api/auth">
+          <span class="dot off" id="krogerDot"></span>
+          <span id="krogerLabel">Log in</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tab-nav">
+    <button class="tab-btn active" data-tab="list">Shopping List</button>
+    <button class="tab-btn" data-tab="staples">Weekly Staples</button>
+  </nav>
+
+  <main class="container">
+    <div class="error-banner" id="errorBanner">⚠️ <span>Having trouble connecting. Changes may not sync.</span></div>
+
+    <!-- ═══ SHOPPING LIST ═══ -->
+    <div class="tab-panel active" id="panel-list">
+      <div class="add-section">
+        <div class="add-row">
+          <input type="text" class="add-input" id="itemInput" placeholder="Add an item…" autocomplete="off">
+          <input type="number" class="qty-input" id="qtyInput" placeholder="Qty" min="1" value="1">
+          <button class="add-btn" id="addBtn">Add</button>
+        </div>
+      </div>
+      <div id="listStats" class="list-stats" style="display:none;"><span id="itemCount"></span><button class="clear-checked-btn" id="clearCheckedBtn">Clear checked</button></div>
+      <div id="loadingState" class="loading"><div class="loading-spinner"></div><p>Connecting to your list…</p></div>
+      <div id="groceryList" class="grocery-list" style="display:none;"></div>
+      <div id="emptyState" class="empty-state" style="display:none;"><div class="empty-icon">🥬</div><h3>Your list is empty</h3><p>Add items above — they'll sync<br>for everyone in real time.</p></div>
+
+      <!-- Send to King Soopers Cart -->
+      <div class="cart-section" id="cartSection" style="display:none;">
+        <div class="cart-section-header"><h3>Send to King Soopers</h3></div>
+        <p class="cart-section-note" id="cartNote"></p>
+        <div id="cartActions"></div>
+        <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+        <p class="progress-text" id="progressText" style="display:none;"></p>
+      </div>
+    </div>
+
+    <!-- ═══ WEEKLY STAPLES ═══ -->
+    <div class="tab-panel" id="panel-staples">
+      <div class="add-staple-section">
+        <p class="add-staple-hint">Save items you buy every week. Tap + to add one to your shopping list, or add them all at once.</p>
+        <div class="add-row">
+          <input type="text" class="add-input" id="stapleInput" placeholder="Add a staple item…" autocomplete="off">
+          <input type="number" class="qty-input" id="stapleQtyInput" placeholder="Qty" min="1" value="1">
+          <button class="add-btn" id="addStapleBtn">Save</button>
+        </div>
+      </div>
+      <div class="staples-header" id="staplesHeader" style="display:none;"><h2>Your Staples</h2><button class="add-all-btn" id="addAllBtn">Add All to List</button></div>
+      <div id="staplesGrid" class="staples-grid"></div>
+      <div id="staplesEmpty" class="empty-state" style="display:none;"><div class="empty-icon">📌</div><h3>No staples yet</h3><p>Add items you buy every week.<br>They'll be here for easy reordering.</p></div>
+      <div id="staplesLoading" class="loading"><div class="loading-spinner"></div><p>Loading staples…</p></div>
+    </div>
+
+    <div class="footer-notice">Grocery Sync · King Soopers Pickup · Never auto-charges</div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, query, orderBy, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+
+    const app = initializeApp({
+      apiKey: "AIzaSyD5RXTAOkMZkNbnXIJsVKMqDhxqOF5YEZk",
+      authDomain: "grocery-bot-ca9d4.firebaseapp.com",
+      projectId: "grocery-bot-ca9d4",
+      storageBucket: "grocery-bot-ca9d4.firebasestorage.app",
+      messagingSenderId: "717832338868",
+      appId: "1:717832338868:web:88720a92182f44e86646e1",
+      measurementId: "G-R92N6FZ00K"
+    });
+    const db = getFirestore(app);
+    const itemsRef = collection(db, "groceryList");
+    const staplesRef = collection(db, "weeklyStaples");
+    const $ = id => document.getElementById(id);
+    let items = [], staples = [];
+    let isLoggedIn = false;
+    const STORE_ID = "01400376"; // Default King Soopers store
+
+    // ══════════════════════════════════
+    // HELPERS
+    // ══════════════════════════════════
+    function showToast(msg, isError) {
+      $("toast").textContent = msg;
+      $("toast").className = isError ? "toast error show" : "toast show";
+      setTimeout(() => $("toast").className = "toast", 2800);
+    }
+    function esc(t) { const d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
+
+    // ══════════════════════════════════
+    // KROGER AUTH — auto-refresh on load
+    // ══════════════════════════════════
+    async function checkKrogerAuth() {
+      try {
+        // Try calling /api/me or /api/products to see if token works
+        // Simplest: try refresh first to ensure fresh token
+        const res = await fetch("/api/refresh", { method: "POST", credentials: "same-origin" });
+        if (res.ok) {
+          setLoggedIn(true);
+          return true;
+        }
+      } catch (e) { /* no refresh token */ }
+
+      // Check if we just came back from login
+      if (window.location.search.includes("logged_in=true")) {
+        setLoggedIn(true);
+        // Clean URL
+        window.history.replaceState({}, "", window.location.pathname);
+        return true;
+      }
+
+      setLoggedIn(false);
+      return false;
+    }
+
+    function setLoggedIn(val) {
+      isLoggedIn = val;
+      const btn = $("krogerBtn");
+      const dot = $("krogerDot");
+      const label = $("krogerLabel");
+      if (val) {
+        btn.classList.add("logged-in");
+        btn.href = "#";
+        btn.onclick = (e) => { e.preventDefault(); if (confirm("Log out of King Soopers?")) window.location.href = "/api/logout"; };
+        dot.className = "dot on";
+        label.textContent = "Connected";
+      } else {
+        btn.classList.remove("logged-in");
+        btn.href = "/api/auth";
+        btn.onclick = null;
+        dot.className = "dot off";
+        label.textContent = "Log in";
+      }
+      updateCartSection();
+    }
+
+    // Auto-refresh token every 25 minutes to stay logged in
+    setInterval(async () => {
+      if (!isLoggedIn) return;
+      try {
+        const res = await fetch("/api/refresh", { method: "POST", credentials: "same-origin" });
+        if (!res.ok) setLoggedIn(false);
+      } catch (e) { /* silent */ }
+    }, 25 * 60 * 1000);
+
+    // Check auth on page load
+    checkKrogerAuth();
+
+    // ══════════════════════════════════
+    // TABS
+    // ══════════════════════════════════
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+        btn.classList.add("active");
+        $("panel-" + btn.dataset.tab).classList.add("active");
+      });
+    });
+
+    // ══════════════════════════════════
+    // SHOPPING LIST
+    // ══════════════════════════════════
+    onSnapshot(query(itemsRef, orderBy("createdAt", "asc")), snap => {
+      $("loadingState").style.display = "none";
+      $("errorBanner").classList.remove("show");
+      $("syncBadge").querySelector("span").textContent = "Live";
+      items = []; snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+      renderList();
+    }, err => {
+      console.error(err);
+      $("loadingState").style.display = "none";
+      $("errorBanner").classList.add("show");
+      $("syncBadge").querySelector("span").textContent = "Offline";
+    });
+
+    function renderList() {
+      const uc = items.filter(i => !i.checked), ch = items.filter(i => i.checked), all = [...uc, ...ch];
+      if (!all.length) {
+        $("groceryList").style.display = "none"; $("emptyState").style.display = "block";
+        $("listStats").style.display = "none"; $("cartSection").style.display = "none";
+        return;
+      }
+      $("emptyState").style.display = "none"; $("groceryList").style.display = "flex"; $("listStats").style.display = "flex";
+      $("itemCount").textContent = `${uc.length} item${uc.length !== 1 ? 's' : ''} remaining`;
+      $("clearCheckedBtn").style.display = ch.length > 0 ? "inline" : "none";
+      $("groceryList").innerHTML = all.map(i => `
+        <div class="grocery-item ${i.checked ? 'checked' : ''}" data-id="${i.id}">
+          <div class="checkbox ${i.checked ? 'is-checked' : ''}" onclick="window.toggleItem('${i.id}',${!i.checked})"></div>
+          <div class="item-details"><div class="item-name">${esc(i.name)}</div>${i.addedBy ? `<div class="item-meta">Added via ${esc(i.addedBy)}</div>` : ''}</div>
+          ${i.quantity > 1 ? `<div class="item-qty-badge">&times;${i.quantity}</div>` : ''}
+          <button class="delete-btn" onclick="window.deleteItem('${i.id}')" title="Remove">✕</button>
+        </div>`).join("");
+      updateCartSection();
+    }
+
+    async function addItem() {
+      const name = $("itemInput").value.trim(); if (!name) return;
+      const qty = parseInt($("qtyInput").value) || 1;
+      await addDoc(itemsRef, { name, quantity: qty, checked: false, addedBy: "", createdAt: serverTimestamp() });
+      $("itemInput").value = ""; $("qtyInput").value = "1"; $("itemInput").focus();
+    }
+    $("addBtn").addEventListener("click", addItem);
+    $("itemInput").addEventListener("keydown", e => { if (e.key === "Enter") addItem(); });
+    window.toggleItem = async (id, checked) => { await updateDoc(doc(db, "groceryList", id), { checked }); };
+    window.deleteItem = async (id) => { await deleteDoc(doc(db, "groceryList", id)); };
+    $("clearCheckedBtn").addEventListener("click", async () => {
+      const ch = items.filter(i => i.checked); if (!ch.length) return;
+      const b = writeBatch(db); ch.forEach(i => b.delete(doc(db, "groceryList", i.id))); await b.commit();
+    });
+
+    // ══════════════════════════════════
+    // SEND TO KING SOOPERS CART
+    // ══════════════════════════════════
+    function updateCartSection() {
+      const unchecked = items.filter(i => !i.checked);
+      if (unchecked.length === 0) {
+        $("cartSection").style.display = "none";
+        return;
+      }
+      $("cartSection").style.display = "block";
+
+      if (!isLoggedIn) {
+        $("cartNote").textContent = "Log in to your King Soopers account to send your list directly to your pickup cart.";
+        $("cartActions").innerHTML = `<button class="login-prompt-btn" onclick="window.location.href='/api/auth'">🔑 Log in to King Soopers</button>`;
+        $("progressBar").className = "progress-bar";
+        $("progressText").style.display = "none";
+      } else {
+        $("cartNote").textContent = `${unchecked.length} unchecked item${unchecked.length !== 1 ? 's' : ''} will be searched and added to your King Soopers pickup cart.`;
+        $("cartActions").innerHTML = `<button class="send-cart-btn" id="sendCartBtn" onclick="window.sendToCart()">🛒 Send to King Soopers Cart</button>`;
+        $("progressBar").className = "progress-bar";
+        $("progressText").style.display = "none";
+      }
+    }
+
+    window.sendToCart = async function() {
+      const unchecked = items.filter(i => !i.checked);
+      if (!unchecked.length) return;
+
+      const btn = document.getElementById("sendCartBtn");
+      btn.disabled = true;
+      btn.textContent = "Searching products…";
+      $("progressBar").className = "progress-bar active";
+      $("progressText").style.display = "block";
+
+      const matched = [];
+      const failed = [];
+
+      for (let idx = 0; idx < unchecked.length; idx++) {
+        const item = unchecked[idx];
+        const pct = Math.round(((idx + 1) / unchecked.length) * 80);
+        $("progressFill").style.width = pct + "%";
+        $("progressText").textContent = `Searching: ${item.name}…`;
+
+        try {
+          const res = await fetch(`/api/products?term=${encodeURIComponent(item.name)}&locationId=${STORE_ID}`, { credentials: "same-origin" });
+          if (res.status === 401) {
+            // Token expired mid-flow — try refresh
+            const refreshRes = await fetch("/api/refresh", { method: "POST", credentials: "same-origin" });
+            if (refreshRes.ok) {
+              // Retry the search
+              const retry = await fetch(`/api/products?term=${encodeURIComponent(item.name)}&locationId=${STORE_ID}`, { credentials: "same-origin" });
+              if (retry.ok) {
+                const data = await retry.json();
+                if (data.products?.length) {
+                  matched.push({ upc: data.products[0].upc, quantity: item.quantity || 1, name: item.name, product: data.products[0].name });
+                } else { failed.push(item.name); }
+              } else { failed.push(item.name); }
+            } else {
+              setLoggedIn(false);
+              showToast("Session expired. Please log in again.", true);
+              btn.disabled = false; btn.textContent = "🛒 Send to King Soopers Cart";
+              $("progressBar").className = "progress-bar"; $("progressText").style.display = "none";
+              updateCartSection();
+              return;
+            }
+          } else if (res.ok) {
+            const data = await res.json();
+            if (data.products?.length) {
+              matched.push({ upc: data.products[0].upc, quantity: item.quantity || 1, name: item.name, product: data.products[0].name });
+            } else { failed.push(item.name); }
+          } else { failed.push(item.name); }
+        } catch (err) {
+          console.error("Search error for", item.name, err);
+          failed.push(item.name);
+        }
+      }
+
+      if (matched.length === 0) {
+        showToast("Couldn't find any products. Try more specific item names.", true);
+        btn.disabled = false; btn.textContent = "🛒 Send to King Soopers Cart";
+        $("progressBar").className = "progress-bar"; $("progressText").style.display = "none";
+        return;
+      }
+
+      // Send matched items to cart
+      $("progressFill").style.width = "90%";
+      $("progressText").textContent = `Adding ${matched.length} items to cart…`;
+      btn.textContent = "Adding to cart…";
+
+      try {
+        const cartRes = await fetch("/api/cart", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: matched.map(m => ({ upc: m.upc, quantity: m.quantity })) })
+        });
+
+        $("progressFill").style.width = "100%";
+
+        if (cartRes.ok) {
+          let msg = `${matched.length} item${matched.length !== 1 ? 's' : ''} added to your King Soopers cart!`;
+          if (failed.length) msg += ` (${failed.length} not found)`;
+          showToast(msg);
+          $("progressText").textContent = "Done! Check your King Soopers app to review & schedule pickup.";
+          btn.textContent = "✓ Sent to Cart";
+          setTimeout(() => {
+            btn.disabled = false; btn.textContent = "🛒 Send to King Soopers Cart";
+            $("progressBar").className = "progress-bar";
+          }, 5000);
+        } else if (cartRes.status === 401) {
+          setLoggedIn(false);
+          showToast("Session expired. Please log in again.", true);
+          updateCartSection();
+        } else {
+          const err = await cartRes.json().catch(() => ({}));
+          showToast("Failed to add to cart. Please try again.", true);
+          console.error("Cart error:", err);
+          btn.disabled = false; btn.textContent = "🛒 Send to King Soopers Cart";
+          $("progressBar").className = "progress-bar"; $("progressText").style.display = "none";
+        }
+      } catch (err) {
+        console.error("Cart error:", err);
+        showToast("Network error. Please try again.", true);
+        btn.disabled = false; btn.textContent = "🛒 Send to King Soopers Cart";
+        $("progressBar").className = "progress-bar"; $("progressText").style.display = "none";
+      }
+    };
+
+    // ══════════════════════════════════
+    // WEEKLY STAPLES
+    // ══════════════════════════════════
+    onSnapshot(query(staplesRef, orderBy("createdAt", "asc")), snap => {
+      $("staplesLoading").style.display = "none";
+      staples = []; snap.forEach(d => staples.push({ id: d.id, ...d.data() }));
+      renderStaples();
+    }, err => { console.error(err); $("staplesLoading").style.display = "none"; });
+
+    function renderStaples() {
+      if (!staples.length) { $("staplesGrid").style.display = "none"; $("staplesEmpty").style.display = "block"; $("staplesHeader").style.display = "none"; return; }
+      $("staplesEmpty").style.display = "none"; $("staplesGrid").style.display = "flex"; $("staplesHeader").style.display = "flex";
+      $("staplesGrid").innerHTML = staples.map(s => `
+        <div class="staple-item" data-id="${s.id}">
+          <div class="item-details"><div class="item-name">${esc(s.name)}</div></div>
+          ${s.quantity > 1 ? `<div class="item-qty-badge">&times;${s.quantity}</div>` : ''}
+          <button class="staple-add-btn" onclick="window.addStapleToList('${s.id}')" title="Add to list">+</button>
+          <button class="staple-remove-btn" onclick="window.removeStaple('${s.id}')" title="Remove">✕</button>
+        </div>`).join("");
+    }
+    async function addStaple() {
+      const name = $("stapleInput").value.trim(); if (!name) return;
+      const qty = parseInt($("stapleQtyInput").value) || 1;
+      await addDoc(staplesRef, { name, quantity: qty, createdAt: serverTimestamp() });
+      $("stapleInput").value = ""; $("stapleQtyInput").value = "1"; $("stapleInput").focus();
+      showToast(`"${name}" saved as a staple`);
+    }
+    $("addStapleBtn").addEventListener("click", addStaple);
+    $("stapleInput").addEventListener("keydown", e => { if (e.key === "Enter") addStaple(); });
+    window.addStapleToList = async (id) => {
+      const s = staples.find(x => x.id === id); if (!s) return;
+      await addDoc(itemsRef, { name: s.name, quantity: s.quantity || 1, checked: false, addedBy: "staples", createdAt: serverTimestamp() });
+      const btn = document.querySelector(`.staple-item[data-id="${id}"] .staple-add-btn`);
+      if (btn) { btn.classList.add("added"); btn.textContent = "✓"; setTimeout(() => { btn.classList.remove("added"); btn.textContent = "+"; }, 1500); }
+      showToast(`"${s.name}" added to list`);
+    };
+    window.removeStaple = async (id) => { await deleteDoc(doc(db, "weeklyStaples", id)); };
+    $("addAllBtn").addEventListener("click", async () => {
+      if (!staples.length) return;
+      $("addAllBtn").disabled = true; $("addAllBtn").textContent = "Adding…";
+      const b = writeBatch(db);
+      staples.forEach(s => { b.set(doc(collection(db, "groceryList")), { name: s.name, quantity: s.quantity || 1, checked: false, addedBy: "staples", createdAt: serverTimestamp() }); });
+      await b.commit();
+      showToast(`${staples.length} staples added to your list`);
+      $("addAllBtn").disabled = false; $("addAllBtn").textContent = "Add All to List";
+      setTimeout(() => document.querySelector('[data-tab="list"]').click(), 800);
+    });
+  </script>
+</body>
+</html>
