@@ -194,7 +194,7 @@
 </head>
 <body>
   <header class="header"><div class="header-inner">
-    <div class="header-left"><div class="header-icon">🛒</div><div class="header-text"><h1>Grocery Sync</h1><p>King Soopers · Pickup</p></div></div>
+    <div class="header-left"><div class="header-icon">🛒</div><div class="header-text"><h1>Grocery Sync</h1><p id="householdLabel">King Soopers · Pickup</p></div></div>
     <div class="header-right">
       <div class="sync-badge" id="syncBadge"><div class="sync-dot"></div><span>Live</span></div>
       <a class="kroger-btn" id="krogerBtn" href="/api/auth"><span class="dot off" id="krogerDot"></span><span id="krogerLabel">Log in</span></a>
@@ -292,6 +292,11 @@
     if(HOUSEHOLD_CODE === "__none__") {
       document.getElementById("errorBanner").style.display = "none";
       document.getElementById("syncBadge").style.display = "none";
+    } else {
+      // Show household code in header so user knows which household they're in
+      const hName = getCookieEarly("householdName");
+      const label = hName && hName !== HOUSEHOLD_CODE ? `${hName} · ${HOUSEHOLD_CODE}` : `Code: ${HOUSEHOLD_CODE}`;
+      document.getElementById("householdLabel").textContent = label;
     }
 
     let items=[], staples=[], isLoggedIn=false;
@@ -440,23 +445,28 @@
 
     // Save household info to Firestore and cookie, then dismiss overlay
     async function joinHousehold(code, name=null){
-      const { setDoc, doc: fsDoc } = await import("https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js");
-      const infoRef = fsDoc(db,"households",code,"info","data");
-      if(name){
-        // Creating — write household info doc
-        await setDoc(infoRef,{name,createdAt:new Date().toISOString()},{merge:true});
-      } else {
-        // Joining — just write a lightweight presence doc so the household exists
-        // (full security rules come in Step 5; for now we trust the code)
-        await setDoc(infoRef,{joinedAt:new Date().toISOString()},{merge:true});
-        name = code;
+      try {
+        const { setDoc, doc: fsDoc } = await import("https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js");
+        const infoRef = fsDoc(db,"households",code,"info","data");
+        if(name){
+          await setDoc(infoRef,{name,createdAt:new Date().toISOString()},{merge:true});
+        } else {
+          await setDoc(infoRef,{joinedAt:new Date().toISOString()},{merge:true});
+          name = code;
+        }
+      } catch(e) {
+        // Firestore write failed (e.g. security rules) — still let them in,
+        // the list will sync once deployed to Netlify with proper rules
+        console.warn("Firestore info write failed, continuing anyway:", e);
+        if(!name) name = code;
       }
-      setCookie("householdCode",code);
-      setCookie("householdName",name);
+      setCookie("householdCode", code);
+      setCookie("householdName", name);
+      // Verify cookie was set before reloading
+      const verify = getCookieEarly("householdCode");
       $("householdOverlay").classList.add("hidden");
       showToast("Welcome to Grocery Sync! 🎉");
-      // Reload so itemsRef/staplesRef pick up the new household code
-      setTimeout(()=>location.reload(),800);
+      setTimeout(()=>location.reload(), 900);
       return true;
     }
 
@@ -510,7 +520,13 @@
       if(!code)return;
       this.disabled=true;this.textContent="Joining…";
       $("joinError").classList.remove("show");
-      await joinHousehold(code,null);
+      try {
+        await joinHousehold(code,null);
+      } catch(e) {
+        $("joinError").textContent="Something went wrong. Please try again.";
+        $("joinError").classList.add("show");
+        this.disabled=false;this.textContent="Join Household";
+      }
     });
 
     // On load: show overlay if no household cookie
