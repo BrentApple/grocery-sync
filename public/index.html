@@ -168,7 +168,19 @@
     .migration-yes-btn:hover { background: #B45309; }
     .migration-skip-btn { padding: 9px 18px; background: none; border: 1px solid var(--amber); color: #92400E; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; }
     .migration-skip-btn:hover { background: var(--amber-light); }
-    .household-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    /* Settings Tab */
+    .settings-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow-sm); }
+    .settings-section h3 { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 500; margin-bottom: 16px; color: var(--text-primary); }
+    .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .settings-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .settings-label { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+    .settings-value { font-size: 14px; color: var(--text-primary); font-weight: 600; }
+    .settings-code { font-size: 20px; font-weight: 700; color: var(--accent); letter-spacing: 3px; }
+    .settings-action-btn { padding: 7px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; border: 1.5px solid var(--accent); color: var(--accent); background: var(--accent-light); transition: all 0.2s; }
+    .settings-action-btn:hover { background: var(--accent); color: white; }
+    .settings-action-btn.copied { background: var(--accent); color: white; border-color: var(--accent); }
+    .settings-leave-btn { width: 100%; padding: 12px; background: none; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; font-family: 'DM Sans', sans-serif; color: var(--red); cursor: pointer; margin-top: 8px; transition: all 0.2s; }
+    .settings-leave-btn:hover { background: var(--red-light); border-color: var(--red); } { position: fixed; inset: 0; background: var(--bg); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 24px; }
     .household-overlay.hidden { display: none; }
     .household-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 36px 32px; max-width: 420px; width: 100%; box-shadow: var(--shadow-lg); text-align: center; }
     .household-logo { width: 56px; height: 56px; background: var(--accent); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 26px; margin: 0 auto 20px; box-shadow: 0 4px 12px rgba(45,90,61,0.25); }
@@ -208,7 +220,7 @@
       <a class="kroger-btn" id="krogerBtn" href="/api/auth"><span class="dot off" id="krogerDot"></span><span id="krogerLabel">Log in</span></a>
     </div>
   </div></header>
-  <nav class="tab-nav"><button class="tab-btn active" data-tab="list">Shopping List</button><button class="tab-btn" data-tab="staples">Weekly Staples</button></nav>
+  <nav class="tab-nav"><button class="tab-btn active" data-tab="list">Shopping List</button><button class="tab-btn" data-tab="staples">Weekly Staples</button><button class="tab-btn" data-tab="settings">Settings</button></nav>
   <main class="container">
     <div class="error-banner" id="errorBanner">⚠️ <span>Having trouble connecting. Changes may not sync.</span></div>
     <div class="tab-panel active" id="panel-list">
@@ -233,6 +245,27 @@
       <div id="staplesGrid" class="staples-grid"></div>
       <div id="staplesEmpty" class="empty-state" style="display:none;"><div class="empty-icon">📌</div><h3>No staples yet</h3><p>Add items you buy every week.<br>They'll be here for easy reordering.</p></div>
       <div id="staplesLoading" class="loading"><div class="loading-spinner"></div><p>Loading staples…</p></div>
+    </div>
+    <div class="tab-panel" id="panel-settings">
+      <div class="settings-section">
+        <h3>Your Household</h3>
+        <div class="settings-row">
+          <span class="settings-label">Name</span>
+          <span class="settings-value" id="settingsHouseholdName">—</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">Code</span>
+          <span class="settings-code" id="settingsHouseholdCode">—</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">Share with family or friends</span>
+          <button class="settings-action-btn" id="shareCodeBtn">📋 Copy Code</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h3>Danger Zone</h3>
+        <button class="settings-leave-btn" id="leaveHouseholdBtn">Leave this Household</button>
+      </div>
     </div>
     <div class="footer-notice">Grocery Sync · King Soopers Pickup · Never auto-charges</div>
   </main>
@@ -550,6 +583,43 @@
       const code=getCookieEarly("householdCode");
       if(!code||code==="__none__"){ $("householdOverlay").classList.remove("hidden"); }
     })();
+    // ─── Settings Tab ────────────────────────────────────────────────────────
+    (function initSettings(){
+      if(HOUSEHOLD_CODE === "__none__") return;
+      const hName = getCookieEarly("householdName") || HOUSEHOLD_CODE;
+      const nameEl = $("settingsHouseholdName");
+      const codeEl = $("settingsHouseholdCode");
+      if(nameEl) nameEl.textContent = hName !== HOUSEHOLD_CODE ? hName : "—";
+      if(codeEl) codeEl.textContent = HOUSEHOLD_CODE;
+
+      // Share / copy button
+      $("shareCodeBtn").addEventListener("click", async function(){
+        const shareText = `Join my Grocery Sync household! Code: ${HOUSEHOLD_CODE}`;
+        // Try native share sheet first (iOS/Android)
+        if(navigator.share){
+          try{ await navigator.share({ title:"Grocery Sync", text: shareText }); return; }catch(e){}
+        }
+        // Fall back to clipboard
+        try{
+          await navigator.clipboard.writeText(HOUSEHOLD_CODE);
+          this.textContent="✓ Copied!";
+          this.classList.add("copied");
+          setTimeout(()=>{ this.textContent="📋 Copy Code"; this.classList.remove("copied"); },2000);
+        }catch(e){ showToast("Your code is: "+HOUSEHOLD_CODE); }
+      });
+
+      // Leave household
+      $("leaveHouseholdBtn").addEventListener("click", function(){
+        if(!confirm("Leave this household? You'll need the code to rejoin.")) return;
+        // Clear cookies
+        document.cookie="householdCode=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+        document.cookie="householdName=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+        document.cookie="migrationDone=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+        location.reload();
+      });
+    })();
+    // ─── End Settings Tab ────────────────────────────────────────────────────
+
     // ─── Data Migration ─────────────────────────────────────────────────────
     // Runs once when user has a household but hasn't migrated yet
     async function checkMigration(){
