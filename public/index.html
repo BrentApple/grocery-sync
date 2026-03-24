@@ -159,6 +159,16 @@
     .error-banner.show { display: flex; }
     @media (max-width: 600px) { .header { padding: 16px; } .container { padding: 12px 12px 120px; } .delete-btn, .staple-remove-btn { opacity: 0.6; } .add-row { flex-wrap: wrap; } .add-input { min-width: 0; } .header-text h1 { font-size: 18px; } .picker-sheet { max-height: 92vh; } }
 
+    /* iOS Install Banner */
+    .install-banner { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); padding: 16px 20px; z-index: 400; display: none; box-shadow: 0 -4px 20px rgba(0,0,0,0.08); }
+    .install-banner.show { display: flex; align-items: center; gap: 14px; }
+    .install-banner-icon { width: 44px; height: 44px; background: var(--accent); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+    .install-banner-text { flex: 1; }
+    .install-banner-text strong { font-size: 14px; font-weight: 600; display: block; margin-bottom: 2px; }
+    .install-banner-text span { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+    .install-banner-text span b { color: var(--text-secondary); }
+    .install-banner-close { width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--surface-hover); color: var(--text-muted); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
     .migration-banner { background: var(--amber-light); border: 1px solid var(--amber); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 16px; display: none; }
     .migration-banner.show { display: block; }
     .migration-banner h3 { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 500; color: #92400E; margin-bottom: 6px; }
@@ -269,6 +279,15 @@
     </div>
     <div class="footer-notice">Grocery Sync · King Soopers Pickup · Never auto-charges</div>
   </main>
+  <!-- iOS Add to Home Screen Banner -->
+  <div class="install-banner" id="installBanner">
+    <div class="install-banner-icon">🛒</div>
+    <div class="install-banner-text">
+      <strong>Add to Home Screen</strong>
+      <span>Tap <b>Share</b> then <b>Add to Home Screen</b> for the full app experience</span>
+    </div>
+    <button class="install-banner-close" id="installBannerClose">✕</button>
+  </div>
   <!-- Household Onboarding Overlay -->
   <div class="household-overlay hidden" id="householdOverlay">
     <div class="household-card">
@@ -583,6 +602,21 @@
       const code=getCookieEarly("householdCode");
       if(!code||code==="__none__"){ $("householdOverlay").classList.remove("hidden"); }
     })();
+    // ─── iOS Install Banner ──────────────────────────────────────────────────
+    (function(){
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      const isStandalone = window.navigator.standalone === true;
+      const dismissed = getCookieEarly("installDismissed");
+      if(isIOS && !isStandalone && !dismissed && HOUSEHOLD_CODE !== "__none__"){
+        setTimeout(()=>{ $("installBanner").classList.add("show"); }, 2000);
+      }
+      $("installBannerClose").addEventListener("click",()=>{
+        $("installBanner").classList.remove("show");
+        setCookie("installDismissed","1",30);
+      });
+    })();
+    // ─── End iOS Install Banner ──────────────────────────────────────────────
+
     // ─── Settings Tab ────────────────────────────────────────────────────────
     (function initSettings(){
       if(HOUSEHOLD_CODE === "__none__") return;
