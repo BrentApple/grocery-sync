@@ -279,8 +279,21 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
     import { getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, query, orderBy, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
     const app = initializeApp({ apiKey:"AIzaSyD5RXTAOkMZkNbnXIJsVKMqDhxqOF5YEZk", authDomain:"grocery-bot-ca9d4.firebaseapp.com", projectId:"grocery-bot-ca9d4", storageBucket:"grocery-bot-ca9d4.firebasestorage.app", messagingSenderId:"717832338868", appId:"1:717832338868:web:88720a92182f44e86646e1" });
-    const db = getFirestore(app), itemsRef = collection(db,"groceryList"), staplesRef = collection(db,"weeklyStaples");
+    const db = getFirestore(app);
     const $ = id => document.getElementById(id);
+
+    // Household-scoped Firestore refs — read code from cookie set during onboarding
+    function getCookieEarly(name){const m=document.cookie.match(new RegExp('(?:^|; )'+name+'=([^;]*)'));return m?decodeURIComponent(m[1]):null;}
+    const HOUSEHOLD_CODE = getCookieEarly("householdCode") || "__none__";
+    const itemsRef   = collection(db,"households",HOUSEHOLD_CODE,"groceryList");
+    const staplesRef = collection(db,"households",HOUSEHOLD_CODE,"weeklyStaples");
+
+    // Don't show sync errors until we have a real household
+    if(HOUSEHOLD_CODE === "__none__") {
+      document.getElementById("errorBanner").style.display = "none";
+      document.getElementById("syncBadge").style.display = "none";
+    }
+
     let items=[], staples=[], isLoggedIn=false;
     const STORE_ID = "01400376";
     function showToast(m,e){ $("toast").textContent=m; $("toast").className=e?"toast error show":"toast show"; setTimeout(()=>$("toast").className="toast",2800); }
@@ -306,9 +319,10 @@
 
     // Shopping List
     onSnapshot(query(itemsRef,orderBy("createdAt","asc")),snap=>{
+      if(HOUSEHOLD_CODE==="__none__") return;
       $("loadingState").style.display="none";$("errorBanner").classList.remove("show");$("syncBadge").querySelector("span").textContent="Live";
       items=[];snap.forEach(d=>items.push({id:d.id,...d.data()}));renderList();
-    },err=>{console.error(err);$("loadingState").style.display="none";$("errorBanner").classList.add("show");$("syncBadge").querySelector("span").textContent="Offline";});
+    },err=>{if(HOUSEHOLD_CODE==="__none__") return; console.error(err);$("loadingState").style.display="none";$("errorBanner").classList.add("show");$("syncBadge").querySelector("span").textContent="Offline";});
 
     function renderList(){
       const uc=items.filter(i=>!i.checked),ch=items.filter(i=>i.checked),all=[...uc,...ch];
@@ -322,9 +336,9 @@
     async function addItem(){const n=$("itemInput").value.trim();if(!n)return;const q=parseInt($("qtyInput").value)||1;await addDoc(itemsRef,{name:n,quantity:q,checked:false,addedBy:"",createdAt:serverTimestamp()});$("itemInput").value="";$("qtyInput").value="1";$("itemInput").focus();}
     $("addBtn").addEventListener("click",addItem);
     $("itemInput").addEventListener("keydown",e=>{if(e.key==="Enter")addItem();});
-    window.toggleItem=async(id,c)=>{await updateDoc(doc(db,"groceryList",id),{checked:c});};
-    window.deleteItem=async id=>{await deleteDoc(doc(db,"groceryList",id));};
-    $("clearCheckedBtn").addEventListener("click",async()=>{const ch=items.filter(i=>i.checked);if(!ch.length)return;const b=writeBatch(db);ch.forEach(i=>b.delete(doc(db,"groceryList",i.id)));await b.commit();});
+    window.toggleItem=async(id,c)=>{await updateDoc(doc(db,"households",HOUSEHOLD_CODE,"groceryList",id),{checked:c});};
+    window.deleteItem=async id=>{await deleteDoc(doc(db,"households",HOUSEHOLD_CODE,"groceryList",id));};
+    $("clearCheckedBtn").addEventListener("click",async()=>{const ch=items.filter(i=>i.checked);if(!ch.length)return;const b=writeBatch(db);ch.forEach(i=>b.delete(doc(db,"households",HOUSEHOLD_CODE,"groceryList",i.id)));await b.commit();});
 
     // Cart Section
     function updateCartSection(){
@@ -393,7 +407,7 @@
     }
 
     // Staples
-    onSnapshot(query(staplesRef,orderBy("createdAt","asc")),snap=>{$("staplesLoading").style.display="none";staples=[];snap.forEach(d=>staples.push({id:d.id,...d.data()}));renderStaples();},err=>{console.error(err);$("staplesLoading").style.display="none";});
+    onSnapshot(query(staplesRef,orderBy("createdAt","asc")),snap=>{if(HOUSEHOLD_CODE==="__none__") return; $("staplesLoading").style.display="none";staples=[];snap.forEach(d=>staples.push({id:d.id,...d.data()}));renderStaples();},err=>{if(HOUSEHOLD_CODE==="__none__") return; console.error(err);$("staplesLoading").style.display="none";});
     function renderStaples(){
       if(!staples.length){$("staplesGrid").style.display="none";$("staplesEmpty").style.display="block";$("staplesHeader").style.display="none";return;}
       $("staplesEmpty").style.display="none";$("staplesGrid").style.display="flex";$("staplesHeader").style.display="flex";
@@ -403,12 +417,11 @@
     $("addStapleBtn").addEventListener("click",addStaple);
     $("stapleInput").addEventListener("keydown",e=>{if(e.key==="Enter")addStaple();});
     window.addStapleToList=async id=>{const s=staples.find(x=>x.id===id);if(!s)return;await addDoc(itemsRef,{name:s.name,quantity:s.quantity||1,checked:false,addedBy:"staples",createdAt:serverTimestamp()});const b=document.querySelector(`.staple-item[data-id="${id}"] .staple-add-btn`);if(b){b.classList.add("added");b.textContent="✓";setTimeout(()=>{b.classList.remove("added");b.textContent="+";},1500);}showToast(`"${s.name}" added to list`);};
-    window.removeStaple=async id=>{await deleteDoc(doc(db,"weeklyStaples",id));};
-    $("addAllBtn").addEventListener("click",async()=>{if(!staples.length)return;$("addAllBtn").disabled=true;$("addAllBtn").textContent="Adding…";const b=writeBatch(db);staples.forEach(s=>{b.set(doc(collection(db,"groceryList")),{name:s.name,quantity:s.quantity||1,checked:false,addedBy:"staples",createdAt:serverTimestamp()});});await b.commit();showToast(`${staples.length} staples added to your list`);$("addAllBtn").disabled=false;$("addAllBtn").textContent="Add All to List";setTimeout(()=>document.querySelector('[data-tab="list"]').click(),800);});
+    window.removeStaple=async id=>{await deleteDoc(doc(db,"households",HOUSEHOLD_CODE,"weeklyStaples",id));};
+    $("addAllBtn").addEventListener("click",async()=>{if(!staples.length)return;$("addAllBtn").disabled=true;$("addAllBtn").textContent="Adding…";const b=writeBatch(db);staples.forEach(s=>{b.set(doc(collection(db,"households",HOUSEHOLD_CODE,"groceryList")),{name:s.name,quantity:s.quantity||1,checked:false,addedBy:"staples",createdAt:serverTimestamp()});});await b.commit();showToast(`${staples.length} staples added to your list`);$("addAllBtn").disabled=false;$("addAllBtn").textContent="Add All to List";setTimeout(()=>document.querySelector('[data-tab="list"]').click(),800);});
 
     // ─── Household Onboarding ───────────────────────────────────────────────
-    // Cookie helpers
-    function getCookie(name){const m=document.cookie.match(new RegExp('(?:^|; )'+name+'=([^;]*)'));return m?decodeURIComponent(m[1]):null;}
+    // setCookie helper (getCookieEarly defined above for use at module load time)
     function setCookie(name,value,days=365){const d=new Date();d.setTime(d.getTime()+days*864e5);document.cookie=`${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/;SameSite=Lax`;}
 
     // Generate a code from the household name: first 5 chars (letters only, uppercase) + random digit
@@ -427,19 +440,23 @@
 
     // Save household info to Firestore and cookie, then dismiss overlay
     async function joinHousehold(code, name=null){
-      const { setDoc, doc: fsDoc, getDoc } = await import("https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js");
+      const { setDoc, doc: fsDoc } = await import("https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js");
+      const infoRef = fsDoc(db,"households",code,"info","data");
       if(name){
         // Creating — write household info doc
-        await setDoc(fsDoc(db,"households",code,"info","data"),{name,createdAt:new Date().toISOString()},{merge:true});
+        await setDoc(infoRef,{name,createdAt:new Date().toISOString()},{merge:true});
       } else {
-        // Joining — verify code exists
-        const snap=await getDoc(fsDoc(db,"households",code,"info","data"));
-        if(!snap.exists()){return false;}
+        // Joining — just write a lightweight presence doc so the household exists
+        // (full security rules come in Step 5; for now we trust the code)
+        await setDoc(infoRef,{joinedAt:new Date().toISOString()},{merge:true});
+        name = code;
       }
       setCookie("householdCode",code);
-      setCookie("householdName",name||(await (async()=>{const s=await (await import("https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js")).getDoc((await import("https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js")).doc(db,"households",code,"info","data"));return s.data()?.name||code;})()));
+      setCookie("householdName",name);
       $("householdOverlay").classList.add("hidden");
       showToast("Welcome to Grocery Sync! 🎉");
+      // Reload so itemsRef/staplesRef pick up the new household code
+      setTimeout(()=>location.reload(),800);
       return true;
     }
 
@@ -493,14 +510,13 @@
       if(!code)return;
       this.disabled=true;this.textContent="Joining…";
       $("joinError").classList.remove("show");
-      const ok=await joinHousehold(code,null);
-      if(!ok){$("joinError").textContent="That code wasn't found. Double-check and try again.";$("joinError").classList.add("show");this.disabled=false;this.textContent="Join Household";}
+      await joinHousehold(code,null);
     });
 
     // On load: show overlay if no household cookie
     (function(){
-      const code=getCookie("householdCode");
-      if(!code){ $("householdOverlay").classList.remove("hidden"); }
+      const code=getCookieEarly("householdCode");
+      if(!code||code==="__none__"){ $("householdOverlay").classList.remove("hidden"); }
     })();
     // ─── End Household Onboarding ───────────────────────────────────────────
   </script>
