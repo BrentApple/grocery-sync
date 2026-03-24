@@ -159,7 +159,15 @@
     .error-banner.show { display: flex; }
     @media (max-width: 600px) { .header { padding: 16px; } .container { padding: 12px 12px 120px; } .delete-btn, .staple-remove-btn { opacity: 0.6; } .add-row { flex-wrap: wrap; } .add-input { min-width: 0; } .header-text h1 { font-size: 18px; } .picker-sheet { max-height: 92vh; } }
 
-    /* Household Onboarding */
+    .migration-banner { background: var(--amber-light); border: 1px solid var(--amber); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 16px; display: none; }
+    .migration-banner.show { display: block; }
+    .migration-banner h3 { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 500; color: #92400E; margin-bottom: 6px; }
+    .migration-banner p { font-size: 13px; color: #92400E; line-height: 1.4; margin-bottom: 12px; }
+    .migration-banner-btns { display: flex; gap: 8px; }
+    .migration-yes-btn { padding: 9px 18px; background: var(--amber); color: white; border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; }
+    .migration-yes-btn:hover { background: #B45309; }
+    .migration-skip-btn { padding: 9px 18px; background: none; border: 1px solid var(--amber); color: #92400E; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; }
+    .migration-skip-btn:hover { background: var(--amber-light); }
     .household-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 24px; }
     .household-overlay.hidden { display: none; }
     .household-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 36px 32px; max-width: 420px; width: 100%; box-shadow: var(--shadow-lg); text-align: center; }
@@ -204,6 +212,14 @@
   <main class="container">
     <div class="error-banner" id="errorBanner">⚠️ <span>Having trouble connecting. Changes may not sync.</span></div>
     <div class="tab-panel active" id="panel-list">
+      <div class="migration-banner" id="migrationBanner">
+        <h3>📦 You have existing data</h3>
+        <p>We found a grocery list and staples from before households were added. Move them into your household so nothing is lost.</p>
+        <div class="migration-banner-btns">
+          <button class="migration-yes-btn" id="migrationYesBtn">Move my data in</button>
+          <button class="migration-skip-btn" id="migrationSkipBtn">Skip, start fresh</button>
+        </div>
+      </div>
       <div class="add-section"><div class="add-row"><input type="text" class="add-input" id="itemInput" placeholder="Add an item…" autocomplete="off"><input type="number" class="qty-input" id="qtyInput" placeholder="Qty" min="1" value="1"><button class="add-btn" id="addBtn">Add</button></div></div>
       <div id="listStats" class="list-stats" style="display:none;"><span id="itemCount"></span><button class="clear-checked-btn" id="clearCheckedBtn">Clear checked</button></div>
       <div id="loadingState" class="loading"><div class="loading-spinner"></div><p>Connecting to your list…</p></div>
@@ -277,7 +293,7 @@
   <div class="toast" id="toast"></div>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, query, orderBy, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, query, orderBy, onSnapshot, serverTimestamp, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
     const app = initializeApp({ apiKey:"AIzaSyD5RXTAOkMZkNbnXIJsVKMqDhxqOF5YEZk", authDomain:"grocery-bot-ca9d4.firebaseapp.com", projectId:"grocery-bot-ca9d4", storageBucket:"grocery-bot-ca9d4.firebasestorage.app", messagingSenderId:"717832338868", appId:"1:717832338868:web:88720a92182f44e86646e1" });
     const db = getFirestore(app);
     const $ = id => document.getElementById(id);
@@ -534,7 +550,57 @@
       const code=getCookieEarly("householdCode");
       if(!code||code==="__none__"){ $("householdOverlay").classList.remove("hidden"); }
     })();
-    // ─── End Household Onboarding ───────────────────────────────────────────
+    // ─── Data Migration ─────────────────────────────────────────────────────
+    // Runs once when user has a household but hasn't migrated yet
+    async function checkMigration(){
+      if(HOUSEHOLD_CODE === "__none__") return;
+      if(getCookieEarly("migrationDone")) return;
+
+      // Check if old top-level collections have any data
+      const [oldItems, oldStaples] = await Promise.all([
+        getDocs(collection(db,"groceryList")),
+        getDocs(collection(db,"weeklyStaples"))
+      ]);
+
+      const hasOldData = !oldItems.empty || !oldStaples.empty;
+      if(!hasOldData){ setCookie("migrationDone","1"); return; }
+
+      // Show the banner
+      $("migrationBanner").classList.add("show");
+
+      $("migrationYesBtn").addEventListener("click", async function(){
+        this.disabled=true; this.textContent="Moving…";
+        try {
+          const batch = writeBatch(db);
+          // Copy groceryList items
+          oldItems.forEach(d=>{
+            batch.set(doc(collection(db,"households",HOUSEHOLD_CODE,"groceryList")),d.data());
+          });
+          // Copy weeklyStaples items
+          oldStaples.forEach(d=>{
+            batch.set(doc(collection(db,"households",HOUSEHOLD_CODE,"weeklyStaples")),d.data());
+          });
+          await batch.commit();
+          setCookie("migrationDone","1");
+          $("migrationBanner").classList.remove("show");
+          showToast(`Moved ${oldItems.size} list items and ${oldStaples.size} staples into your household!`);
+        } catch(e) {
+          console.error("Migration failed:", e);
+          this.disabled=false; this.textContent="Move my data in";
+          showToast("Migration failed. Please try again.",true);
+        }
+      });
+
+      $("migrationSkipBtn").addEventListener("click", function(){
+        setCookie("migrationDone","1");
+        $("migrationBanner").classList.remove("show");
+        showToast("Starting fresh — old data left in place.");
+      });
+    }
+
+    // Run migration check after a short delay so Firestore is ready
+    if(HOUSEHOLD_CODE !== "__none__") setTimeout(checkMigration, 1500);
+    // ─── End Data Migration ──────────────────────────────────────────────────
   </script>
 </body>
 </html>
