@@ -158,6 +158,38 @@
     .error-banner { background: var(--amber-light); border: 1px solid var(--amber); border-radius: var(--radius-sm); padding: 12px 16px; margin-bottom: 16px; font-size: 13px; color: #92400E; display: none; align-items: center; gap: 8px; }
     .error-banner.show { display: flex; }
     @media (max-width: 600px) { .header { padding: 16px; } .container { padding: 12px 12px 120px; } .delete-btn, .staple-remove-btn { opacity: 0.6; } .add-row { flex-wrap: wrap; } .add-input { min-width: 0; } .header-text h1 { font-size: 18px; } .picker-sheet { max-height: 92vh; } }
+
+    /* Household Onboarding */
+    .household-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .household-overlay.hidden { display: none; }
+    .household-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 36px 32px; max-width: 420px; width: 100%; box-shadow: var(--shadow-lg); text-align: center; }
+    .household-logo { width: 56px; height: 56px; background: var(--accent); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 26px; margin: 0 auto 20px; box-shadow: 0 4px 12px rgba(45,90,61,0.25); }
+    .household-card h2 { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 500; letter-spacing: -0.3px; margin-bottom: 8px; }
+    .household-card .household-sub { font-size: 14px; color: var(--text-muted); line-height: 1.5; margin-bottom: 28px; }
+    .household-options { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+    .household-option-btn { width: 100%; padding: 16px 20px; border-radius: var(--radius); border: 1.5px solid var(--border); background: var(--surface); font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600; color: var(--text-primary); cursor: pointer; display: flex; align-items: center; gap: 14px; text-align: left; transition: all 0.2s; }
+    .household-option-btn:hover { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+    .household-option-btn .opt-icon { font-size: 22px; flex-shrink: 0; }
+    .household-option-btn .opt-text { display: flex; flex-direction: column; }
+    .household-option-btn .opt-label { font-size: 15px; font-weight: 600; }
+    .household-option-btn .opt-desc { font-size: 12px; color: var(--text-muted); font-weight: 400; margin-top: 2px; }
+    .household-option-btn:hover .opt-desc { color: var(--accent); opacity: 0.8; }
+    .household-form { display: none; text-align: left; }
+    .household-form.active { display: block; }
+    .household-form label { font-size: 13px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .household-form input { width: 100%; padding: 12px 16px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 16px; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text-primary); outline: none; margin-bottom: 12px; }
+    .household-form input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(45,90,61,0.1); }
+    .household-form input::placeholder { color: var(--text-muted); }
+    .household-submit-btn { width: 100%; padding: 14px; background: var(--accent); color: white; border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; margin-bottom: 12px; }
+    .household-submit-btn:hover { background: var(--accent-hover); }
+    .household-submit-btn:disabled { background: var(--border); cursor: default; }
+    .household-back-btn { width: 100%; padding: 10px; background: none; border: none; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text-muted); cursor: pointer; }
+    .household-back-btn:hover { color: var(--text-secondary); }
+    .household-code-preview { background: var(--accent-light); border: 1px solid var(--accent); border-radius: var(--radius-sm); padding: 12px 16px; margin-bottom: 16px; text-align: center; display: none; }
+    .household-code-preview .code-label { font-size: 11px; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .household-code-preview .code-value { font-size: 28px; font-weight: 700; color: var(--accent); letter-spacing: 4px; font-family: 'DM Sans', sans-serif; }
+    .household-error { font-size: 13px; color: var(--red); background: var(--red-light); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 12px; display: none; }
+    .household-error.show { display: block; }
   </style>
 </head>
 <body>
@@ -188,6 +220,55 @@
     </div>
     <div class="footer-notice">Grocery Sync · King Soopers Pickup · Never auto-charges</div>
   </main>
+  <!-- Household Onboarding Overlay -->
+  <div class="household-overlay hidden" id="householdOverlay">
+    <div class="household-card">
+      <div class="household-logo">🛒</div>
+      <h2>Welcome to Grocery Sync</h2>
+      <p class="household-sub">Create a household to get started, or join one your family or friends shared with you.</p>
+
+      <!-- Step 1: Choose action -->
+      <div class="household-options" id="householdOptions">
+        <button class="household-option-btn" id="btnShowCreate">
+          <span class="opt-icon">🏠</span>
+          <span class="opt-text">
+            <span class="opt-label">Create a Household</span>
+            <span class="opt-desc">Start a new shared list for your household</span>
+          </span>
+        </button>
+        <button class="household-option-btn" id="btnShowJoin">
+          <span class="opt-icon">🔗</span>
+          <span class="opt-text">
+            <span class="opt-label">Join a Household</span>
+            <span class="opt-desc">Enter a code someone shared with you</span>
+          </span>
+        </button>
+      </div>
+
+      <!-- Create form -->
+      <div class="household-form" id="createForm">
+        <div class="household-error" id="createError"></div>
+        <label for="householdNameInput">Household Name</label>
+        <input type="text" id="householdNameInput" placeholder="e.g. The Applebaums" maxlength="30" autocomplete="off">
+        <div class="household-code-preview" id="codePreview">
+          <div class="code-label">Your household code will be</div>
+          <div class="code-value" id="codePreviewValue"></div>
+        </div>
+        <button class="household-submit-btn" id="createSubmitBtn" disabled>Create Household</button>
+        <button class="household-back-btn" id="createBackBtn">← Back</button>
+      </div>
+
+      <!-- Join form -->
+      <div class="household-form" id="joinForm">
+        <div class="household-error" id="joinError"></div>
+        <label for="householdCodeInput">Household Code</label>
+        <input type="text" id="householdCodeInput" placeholder="e.g. APPLE7" maxlength="10" autocomplete="off" style="text-transform:uppercase;letter-spacing:3px;font-weight:700;">
+        <button class="household-submit-btn" id="joinSubmitBtn" disabled>Join Household</button>
+        <button class="household-back-btn" id="joinBackBtn">← Back</button>
+      </div>
+    </div>
+  </div>
+
   <div class="picker-overlay" id="pickerOverlay"><div class="picker-sheet" id="pickerSheet">
     <div class="picker-header"><div class="picker-handle"></div><div class="picker-title" id="pickerTitle">Choose your products</div><div class="picker-subtitle" id="pickerSubtitle"></div><div class="picker-progress" id="pickerProgress"></div></div>
     <div class="picker-body" id="pickerBody"></div>
@@ -324,6 +405,104 @@
     window.addStapleToList=async id=>{const s=staples.find(x=>x.id===id);if(!s)return;await addDoc(itemsRef,{name:s.name,quantity:s.quantity||1,checked:false,addedBy:"staples",createdAt:serverTimestamp()});const b=document.querySelector(`.staple-item[data-id="${id}"] .staple-add-btn`);if(b){b.classList.add("added");b.textContent="✓";setTimeout(()=>{b.classList.remove("added");b.textContent="+";},1500);}showToast(`"${s.name}" added to list`);};
     window.removeStaple=async id=>{await deleteDoc(doc(db,"weeklyStaples",id));};
     $("addAllBtn").addEventListener("click",async()=>{if(!staples.length)return;$("addAllBtn").disabled=true;$("addAllBtn").textContent="Adding…";const b=writeBatch(db);staples.forEach(s=>{b.set(doc(collection(db,"groceryList")),{name:s.name,quantity:s.quantity||1,checked:false,addedBy:"staples",createdAt:serverTimestamp()});});await b.commit();showToast(`${staples.length} staples added to your list`);$("addAllBtn").disabled=false;$("addAllBtn").textContent="Add All to List";setTimeout(()=>document.querySelector('[data-tab="list"]').click(),800);});
+
+    // ─── Household Onboarding ───────────────────────────────────────────────
+    // Cookie helpers
+    function getCookie(name){const m=document.cookie.match(new RegExp('(?:^|; )'+name+'=([^;]*)'));return m?decodeURIComponent(m[1]):null;}
+    function setCookie(name,value,days=365){const d=new Date();d.setTime(d.getTime()+days*864e5);document.cookie=`${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/;SameSite=Lax`;}
+
+    // Generate a code from the household name: first 5 chars (letters only, uppercase) + random digit
+    function generateCode(name){
+      const base=name.replace(/[^a-zA-Z]/g,"").toUpperCase().substring(0,5).padEnd(3,"X");
+      const suffix=Math.floor(Math.random()*90+10); // 2-digit random
+      return base+suffix;
+    }
+
+    // Check if a code already exists in Firestore
+    async function codeExists(code){
+      const { getDoc, doc: fsDoc } = await import("https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js");
+      try{ const snap=await getDoc(fsDoc(db,"households",code,"info","data")); return snap.exists(); }
+      catch(e){ return false; }
+    }
+
+    // Save household info to Firestore and cookie, then dismiss overlay
+    async function joinHousehold(code, name=null){
+      const { setDoc, doc: fsDoc, getDoc } = await import("https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js");
+      if(name){
+        // Creating — write household info doc
+        await setDoc(fsDoc(db,"households",code,"info","data"),{name,createdAt:new Date().toISOString()},{merge:true});
+      } else {
+        // Joining — verify code exists
+        const snap=await getDoc(fsDoc(db,"households",code,"info","data"));
+        if(!snap.exists()){return false;}
+      }
+      setCookie("householdCode",code);
+      setCookie("householdName",name||(await (async()=>{const s=await (await import("https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js")).getDoc((await import("https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js")).doc(db,"households",code,"info","data"));return s.data()?.name||code;})()));
+      $("householdOverlay").classList.add("hidden");
+      showToast("Welcome to Grocery Sync! 🎉");
+      return true;
+    }
+
+    // Show/hide form panels
+    function showOptions(){$("householdOptions").style.display="flex";$("createForm").classList.remove("active");$("joinForm").classList.remove("active");}
+    function showCreate(){$("householdOptions").style.display="none";$("createForm").classList.add("active");$("joinForm").classList.remove("active");$("householdNameInput").focus();}
+    function showJoin(){$("householdOptions").style.display="none";$("joinForm").classList.add("active");$("createForm").classList.remove("active");$("householdCodeInput").focus();}
+
+    $("btnShowCreate").addEventListener("click",showCreate);
+    $("btnShowJoin").addEventListener("click",showJoin);
+    $("createBackBtn").addEventListener("click",showOptions);
+    $("joinBackBtn").addEventListener("click",showOptions);
+
+    // Live code preview as user types household name
+    $("householdNameInput").addEventListener("input",function(){
+      const val=this.value.trim();
+      if(val.length>=2){
+        const code=generateCode(val);
+        $("codePreviewValue").textContent=code;
+        $("codePreview").style.display="block";
+        $("createSubmitBtn").disabled=false;
+        $("createSubmitBtn").dataset.code=code;
+      } else {
+        $("codePreview").style.display="none";
+        $("createSubmitBtn").disabled=true;
+      }
+    });
+    $("householdNameInput").addEventListener("keydown",e=>{if(e.key==="Enter"&&!$("createSubmitBtn").disabled)$("createSubmitBtn").click();});
+
+    // Join: enable button when code is long enough
+    $("householdCodeInput").addEventListener("input",function(){
+      this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,"");
+      $("joinSubmitBtn").disabled=this.value.length<4;
+    });
+    $("householdCodeInput").addEventListener("keydown",e=>{if(e.key==="Enter"&&!$("joinSubmitBtn").disabled)$("joinSubmitBtn").click();});
+
+    // Create submit
+    $("createSubmitBtn").addEventListener("click",async function(){
+      const name=$("householdNameInput").value.trim();
+      if(!name)return;
+      this.disabled=true;this.textContent="Creating…";
+      $("createError").classList.remove("show");
+      const code=this.dataset.code||generateCode(name);
+      const ok=await joinHousehold(code,name);
+      if(!ok){$("createError").textContent="Something went wrong. Please try again.";$("createError").classList.add("show");this.disabled=false;this.textContent="Create Household";}
+    });
+
+    // Join submit
+    $("joinSubmitBtn").addEventListener("click",async function(){
+      const code=$("householdCodeInput").value.trim().toUpperCase();
+      if(!code)return;
+      this.disabled=true;this.textContent="Joining…";
+      $("joinError").classList.remove("show");
+      const ok=await joinHousehold(code,null);
+      if(!ok){$("joinError").textContent="That code wasn't found. Double-check and try again.";$("joinError").classList.add("show");this.disabled=false;this.textContent="Join Household";}
+    });
+
+    // On load: show overlay if no household cookie
+    (function(){
+      const code=getCookie("householdCode");
+      if(!code){ $("householdOverlay").classList.remove("hidden"); }
+    })();
+    // ─── End Household Onboarding ───────────────────────────────────────────
   </script>
 </body>
 </html>
